@@ -16,10 +16,16 @@ class BookController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        $books = Book::all();
-        return $books;
+
+        $book = Book::whereNotNull('id');
+
+        if ($request->input("search")) {
+            $search = $request->input("search");
+            $book->where('title', 'LIKE', "%{$search}%");
+        }
+        return $book->get();
     }
 
     /**
@@ -33,33 +39,41 @@ class BookController extends Controller
 
         $validator = Validator::make($request->all(), [
             'description' => 'required',
-            'title' => ['required', 'min:6'],
+            'title' => ['required', 'min:6', 'unique:books,title'],
             'author' => 'required',
-            //'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'amount' => 'required',
         ]);
+
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
 
-        // New subadmin object
+
+        // check if file exist
+        $path = "";
+        if ($request->hasFile("cover_image")) {
+            // Handle File upload
+            $imageName = time() . '.' . $request->cover_image->extension();
+            $request->cover_image->move(public_path('images'), $imageName);
+            $path = "/images/" . $imageName;
+        }
+
+
+
+        // New  object
         $book = new Book;
 
-        /*
-        $path = Storage::disk('public')->putFile('cover',$request->cover_image('file'));
-        $image_path = $path;
-*/
         // Save to database
         $book->title = $request->title;
         $book->description = $request->description;
-        //$book->cover_image = $image_path;
+        $book->cover_image = $path;
         $book->amount = $request->amount;
         $book->save();
 
-
         return response()->json([
-            "data" => $book,
+            "data" =>  $book,
             "message" => 'Book save succesfull'
         ]);
     }
@@ -87,15 +101,42 @@ class BookController extends Controller
     public function update(Request $request, $id)
     {
 
+        return $request->all();
+
+        $validator = Validator::make($request->all(), [
+            'description' => 'required',
+            'title' => ['required', 'min:6', 'unique:books,title'],
+            'author' => 'required',
+            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'amount' => 'required',
+        ]);
+
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 400);
+        }
+
+
         $book = Book::find($id);
+
+        // check if file exist
+        if ($request->hasFile("cover_image")) {
+            // Handle File upload
+            $imageName = time() . '.' . $request->cover_image->extension();
+            $request->cover_image->move(public_path('images'), $imageName);
+            $book->cover_image = "/images/" . $imageName;
+        }
 
         // Save to database
         $book->title = $request->title;
         $book->description = $request->description;
-        //$book->cover_image = $image_path;
         $book->amount = $request->amount;
         $book->save();
-        return 'Book updated succesfull';
+
+        return response()->json([
+            "data" =>  $book,
+            "message" => 'Book updated succesfull'
+        ]);
     }
 
     /**
@@ -109,14 +150,5 @@ class BookController extends Controller
         $book = Book::findOrFail($id);
         $book->delete();
         return 'Book deleted succesfull';
-    }
-
-    public function search(Request $request)
-    {
-        $search_query = $request->search_query;
-        $data = Book::where('title', 'LIKE', "%$search_query%")
-            ->take(5)
-            ->get();
-        return response()->json($data);
     }
 }
