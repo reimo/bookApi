@@ -19,6 +19,7 @@ use GuzzleHttp\Middleware;
 */
 
 Route::get('/books', [BookController::class, 'search']);
+Route::post('/books', [BookController::class, 'store']);
 
 
 // post create user endpoint
